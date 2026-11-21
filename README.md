@@ -591,11 +591,3 @@ The AI did not deploy or test the proposed configuration in an Azure environment
 - Microsoft Learn product documentation: Azure Front Door, API Management, AKS, Event Hubs, Azure Database for PostgreSQL Flexible Server, Cosmos DB, Key Vault, Azure Monitor/Application Insights, Azure Chaos Studio (https://learn.microsoft.com/azure/)
 - AWS reference workload names as given in the assessment brief.
 
-### Submission checklist
-- [x] Microsoft Azure is stated and used consistently.
-- [x] The architecture diagram shows trust boundaries, traffic flow, failure domains, security controls and key service names.
-- [x] Assumptions and exclusions are explicit.
-- [x] Diagram and code identifiers use consistent names.
-- [x] Security, cost and operational ownership are addressed.
-- [x] Validation steps and known limitations are included.
-- [x] Sources and AI assistance are disclosed.
