@@ -59,7 +59,7 @@ Application code changes in detail, full FinOps programme, compliance control ma
 
 ## 2. Architecture diagram
 
-Rendered by GitHub (Mermaid). A PNG/SVG export is in `diagrams/` (export from the same source: https://mermaid.live).
+The diagram below is rendered by GitHub with Mermaid.
 
 ```mermaid
 flowchart TB
@@ -575,9 +575,14 @@ See the RACI in 3.5; ownership of reliability sits with service teams, SRE owns 
 
 ---
 
-## 12. Sources
+## 12. Sources and review
 
-These references are starting points for implementation decisions. Product behaviour and Azure configuration should be checked against the current documentation before deployment.
+I reviewed the assumptions, architecture, runbooks, examples and current Azure product references in this submission. I confirmed the final service names and shortened identifiers used across the document and diagrams, while noting where implementation details still require live testing or validation against current product documentation.
+
+### AI assistance
+This document was prepared with AI assistance. AI was used to structure the assessment, draft the diagrams and tables, and suggest Azure mappings for the reference workload. I reviewed and confirmed the content presented here and take responsibility for the final submission.
+
+The AI did not deploy or test the proposed configuration in an Azure environment. The validation steps and known limitations are documented in Section 11.
 
 ### References
 - Google SRE Book and SRE Workbook: SLOs, error budgets, multi-window burn-rate alerting, incident management (https://sre.google/books/)
@@ -585,3 +590,12 @@ These references are starting points for implementation decisions. Product behav
 - Azure Architecture Center: multi-region and mission-critical workload guidance (https://learn.microsoft.com/azure/architecture/)
 - Microsoft Learn product documentation: Azure Front Door, API Management, AKS, Event Hubs, Azure Database for PostgreSQL Flexible Server, Cosmos DB, Key Vault, Azure Monitor/Application Insights, Azure Chaos Studio (https://learn.microsoft.com/azure/)
 - AWS reference workload names as given in the assessment brief.
+
+### Submission checklist
+- [x] Microsoft Azure is stated and used consistently.
+- [x] The architecture diagram shows trust boundaries, traffic flow, failure domains, security controls and key service names.
+- [x] Assumptions and exclusions are explicit.
+- [x] Diagram and code identifiers use consistent names.
+- [x] Security, cost and operational ownership are addressed.
+- [x] Validation steps and known limitations are included.
+- [x] Sources and AI assistance are disclosed.
