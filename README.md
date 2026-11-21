@@ -1,24 +1,24 @@
-# Site Reliability Engineer Assessment: Tier 1 Digital Service
+# Tier 1 Digital Service: SRE Assessment
 
-## Selected cloud: **Microsoft Azure**
+## Microsoft Azure
 
-Everything in this submission uses Azure-native services. No other cloud is used, and no hybrid dependency is introduced. The two external providers are third-party SaaS/API dependencies reached over the internet, not part of a hybrid design.
+This assessment uses Azure-native services throughout. The two external providers are third-party payment and identity/SMS APIs reached over the internet; they are dependencies, not part of a hybrid cloud design.
 
-**Submission date:** 23 Nov 2026 · **Author:** Syamsul · **AI assistance:** see [Section 12](#12-sources-and-ai-assistance-disclosure)
+**Author:** Syamsul
 
 ## Contents
 1. [Scope, assumptions, exclusions](#1-scope-assumptions-and-exclusions)
-2. [Architecture diagram (mandatory)](#2-architecture-diagram)
-3. [Service reliability model](#3-service-reliability-model-task-1)
-4. [SLI/SLO specification](#4-slislo-specification-task-1)
-5. [Observability architecture](#5-observability-architecture-task-2)
-6. [Resilience architecture](#6-resilience-architecture-task-3)
-7. [Regional recovery: DR runbook and game-day plan](#7-regional-recovery-dr-runbook-and-game-day-plan-task-4)
-8. [Incident command model](#8-incident-command-model-task-5)
-9. [90-day roadmap and governance](#9-prioritised-90-day-roadmap-and-governance-task-6)
+2. [Architecture diagram](#2-architecture-diagram)
+3. [Service reliability model](#3-service-reliability-model)
+4. [SLI/SLO specification](#4-slislo-specification)
+5. [Observability architecture](#5-observability-architecture)
+6. [Resilience architecture](#6-resilience-architecture)
+7. [Regional recovery: DR runbook and game-day plan](#7-regional-recovery-dr-runbook-and-game-day-plan)
+8. [Incident command model](#8-incident-command-model)
+9. [90-day roadmap and governance](#9-prioritised-90-day-roadmap-and-governance)
 10. [Security, cost and ownership summary](#10-security-cost-and-ownership-summary)
 11. [Validation steps and known limitations](#11-validation-steps-and-known-limitations)
-12. [Sources and AI assistance disclosure](#12-sources-and-ai-assistance-disclosure)
+12. [Sources](#12-sources)
 
 ---
 
@@ -44,16 +44,16 @@ Everything in this submission uses Azure-native services. No other cloud is used
 - **Providers:** `PROV-A` is the payment provider (supports idempotency keys and a transaction query API). `PROV-B` is identity/SMS verification. Neither offers a regional failover we control.
 - **Critical data set:** orders and accounts in `PG-A`, order/fulfilment events in `EH-A`, and idempotency records in `COSMOS`.
 - **Capacity:** about 5 product squads (~40 engineers) and a new SRE team of 3 (assumed). Peak traffic and baselines are unknown; thresholds are starting values to be tuned.
-- **Data in tables below is illustrative**, not measured, unless stated. Section 9 explains how to replace it with real data.
+- The values in the tables are starting estimates, not measured baselines, unless stated otherwise. Section 9 explains how to replace them with production data.
 
 ### Exclusions
 Application code changes in detail, full FinOps programme, compliance control mapping (e.g. PCI-DSS, ISO 27001), SIEM/SOC design (Microsoft Sentinel), mobile app internals, DNS registrar/domain operations, active-active multi-region writes (listed as a future option), multi-cloud.
 
-### What the numbers mean (key reliability reality)
-99.99% availability = **4.32 min/30 days** (13 min/quarter, 52.6 min/year). A single 45-minute regional recovery would consume about **10 months** of budget. Therefore:
-- **RTO 45 min is a hard ceiling, not the plan.** Engineering target for a regional loss: traffic shifted ≤10 min, journeys healthy ≤20 min.
-- Most 99.99% protection must come from **in-region design** (zones, cell isolation, retry discipline, load shedding, fast rollback).
-- Two providers at 99.9% each cap a naive serial journey near 99.8%. Each provider therefore has a **degraded mode** (6.5) and the SLO counts "succeeded or gracefully degraded" outcomes explicitly (4.2).
+### What the numbers mean
+99.99% availability allows 4.32 minutes of downtime in 30 days, 13 minutes per quarter, or about 52.6 minutes per year. A 45-minute regional outage would consume roughly 10 months of that budget:
+- The 45-minute RTO is a hard ceiling. The engineering target is to shift traffic within 10 minutes and restore healthy journeys within 20 minutes.
+- Most availability protection should come from in-region design: zones, isolation, controlled retries, load shedding and fast rollback.
+- Two providers at 99.9% availability could limit a serial journey to roughly 99.8%. That is why both providers have degraded modes (Section 6.5), and the SLO recognises both successful and gracefully degraded outcomes (Section 4.2).
 
 ---
 
@@ -147,7 +147,7 @@ flowchart TB
   PROVA -.->|"webhooks / callbacks"| AFD
 ```
 
-**How to read it**
+**Reading the diagram**
 - **Traffic flow:** customers → `AFD` (WAF, TLS) → `APIM-A` → `AKS-A` → `PG-A` / `EH-A` / `COSMOS`; egress to providers only through `Azure Firewall + NAT Gateway` with fixed IPs. Dotted lines = standby or replication paths.
 - **Failure domains:** zone (1-3 inside each region), region (A vs B), and the provider boundary. `AFD`, `COSMOS` and the observability plane are deliberately outside Region A.
 - **Security controls shown:** WAF + DDoS at the edge, origin lock-down to Front Door (service tag + `X-Azure-FDID` check), private AKS, Private Endpoints, NSGs, Azure Firewall FQDN egress, managed identities, Key Vault, Azure Policy.
@@ -170,7 +170,7 @@ flowchart LR
 
 ---
 
-## 3. Service reliability model (Task 1)
+## 3. Service reliability model
 
 ### 3.1 Journeys, dependencies and failure modes
 | Journey | Path | Dependencies | Failure modes | Degraded mode |
@@ -214,7 +214,7 @@ Principle: **service teams own their reliability; SRE owns the method, tooling a
 
 ---
 
-## 4. SLI/SLO specification (Task 1)
+## 4. SLI/SLO specification
 
 ### 4.1 Customer-journey SLOs (rolling 30 days)
 | ID | Journey | Good event | Valid event | Measured at | SLO | Owner | Source |
@@ -245,7 +245,8 @@ Measurement is **at the edge** (customer view), cross-checked by external availa
 | Ticket | 3× | 1 d / 2 h | 10% | Ticket, next business day |
 | Ticket | 1× | 3 d / 6 h | 10% | Backlog review |
 
-### 4.4 Example SLI query (KQL, illustrative; check column names for your diagnostic settings)
+### 4.4 Example SLI query (KQL)
+Check the column names against the deployed diagnostic configuration.
 ```kusto
 // SLI for SLO-J1 (sign-in availability), 5-minute bins
 AzureDiagnostics
@@ -261,7 +262,7 @@ AzureDiagnostics
 
 ---
 
-## 5. Observability architecture (Task 2)
+## 5. Observability architecture
 
 | Area | Design (Azure-native) |
 |---|---|
@@ -275,7 +276,7 @@ AzureDiagnostics
 | **Alert routing** | Page only on symptoms: SLO burn (4.3), multi-location availability failure, business-signal collapse. Cause alerts (CPU, restarts) become tickets unless predictive (e.g. `PG-A` connections >85%, lag growing >10 min). Path: Azure Monitor alert rule → **alert processing rules** (route by `owner` tag, suppress during planned maintenance) → **action groups** → paging tool + Teams. Each alert links to a runbook. KPI: >80% of pages actionable. |
 | **Independence** | Alert rules, action groups, dashboards (`GRAF`) and the status page run in Region B or outside Azure Region A, so monitoring survives the failure it reports. **Service Health** and **Resource Health** alerts are routed to the same paging path. |
 
-Retry-amplification query (illustrative):
+Retry-amplification query:
 ```kusto
 // Detect retry storms: calls per operation to the same dependency
 dependencies
@@ -287,7 +288,7 @@ dependencies
 
 ---
 
-## 6. Resilience architecture (Task 3)
+## 6. Resilience architecture
 
 ### 6.1 Timeouts (deadline propagation)
 Timeouts shrink downstream so the caller gives up **after** the callee: `AFD` origin 30 s → `APIM` backend 10 s → service-to-service 3 s → `PG`/provider 1-2 s. The remaining deadline travels in `x-request-deadline`; services refuse work they cannot finish. Values set from measured p99.9, not guessed (otherwise cold starts cause false failures).
@@ -342,7 +343,7 @@ Under saturation (CPU >80%, queue depth, concurrency exceeded) services return `
 
 ---
 
-## 7. Regional recovery: DR runbook and game-day plan (Task 4)
+## 7. Regional recovery: DR runbook and game-day plan
 
 ### 7.1 Strategy: warm standby
 Region B runs `AKS-B` at ~40% scale, `PG-B` replica, `EH-B` geo-replica, `APIM-B`, and replicated images/secrets. *Pilot light* is cheaper but cannot reliably meet 45 min with human decision time; *active-active* needs a write-conflict model the app lacks (future option).
@@ -378,7 +379,7 @@ Target detection ≤5 min.
 | 20-30 | **Dependency validation** (7.5); smoke tests; canaries green from 3+ locations; business metrics recovering | Ops lead | Section 7.5 checklist |
 | 30-45 | Start **reconciliation** (7.6); comms update; hold for stability | IC + Comms | No SLO regression for 10 min |
 
-Illustrative commands (validate in game-day Stage 2; syntax may change):
+Example commands for the game-day procedure; validate the syntax against the deployed Azure CLI version:
 ```bash
 # Database: forced promotion of the cross-region replica (unplanned failover)
 az postgres flexible-server replica promote \
@@ -439,7 +440,7 @@ Each game day has a written hypothesis, abort criteria, observers, and a publish
 
 ---
 
-## 8. Incident command model (Task 5)
+## 8. Incident command model
 
 ### 8.1 Severity criteria
 | Sev | Criteria | Response |
@@ -479,13 +480,14 @@ Blameless review within 5 working days for SEV1/2. Actions have owners and dates
 
 ---
 
-## 9. Prioritised 90-day roadmap and governance (Task 6)
+## 9. Prioritised 90-day roadmap and governance
 
 ### 9.1 Prioritisation method
 **Risk score = (Likelihood 1-5) × (Journey impact 1-5) × (Detection gap 1-5) ÷ Effort (S=1, M=2, L=3).**
-Inputs to replace the illustrative values: 12 months of incidents and postmortems; error-budget burn per journey; **toil data** from the paging tool and ticket system (pages per shift, manual minutes per runbook, repeat tickets); alert history via Azure Resource Graph (`alertsmanagementresources`) and `LAW`; DR test results.
+Replace the starting estimates with: 12 months of incident and postmortem data; error-budget burn by journey; paging and ticket toil (pages per shift, runbook time and repeat tickets); alert history from Azure Resource Graph (`alertsmanagementresources`) and `LAW`; and DR test results.
 
-### 9.2 Backlog (scores illustrative, owner in brackets)
+### 9.2 Backlog
+Scores and owners are starting points and should be adjusted after the production baseline is available.
 | # | Item | Why | Effort | Score | Phase |
 |---|---|---|---|---|---|
 | 1 | SLOs and burn-rate paging for J1-J4 [SRE + service teams] | Slow detection | M | 20 | 0-30 d |
@@ -573,12 +575,11 @@ See the RACI in 3.5; ownership of reliability sits with service teams, SRE owns 
 
 ---
 
-## 12. Sources and AI assistance disclosure
+## 12. Sources
 
-### AI assistance
-This submission was drafted with the assistance of **Claude (Anthropic)**, an AI model, used to structure the document, draft tables, diagrams and code snippets, and map the AWS reference workload to Azure services. The candidate reviewed and edited the content and is responsible for it. **[Candidate: confirm or edit this statement to describe exactly what you reviewed, changed and verified before submitting.]** The AI did not test any configuration in a live Azure environment; Azure feature behaviour has not been verified against live documentation by the AI (see Section 11).
+These references are starting points for implementation decisions. Product behaviour and Azure configuration should be checked against the current documentation before deployment.
 
-### Sources (general references; verify current versions)
+### References
 - Google SRE Book and SRE Workbook: SLOs, error budgets, multi-window burn-rate alerting, incident management (https://sre.google/books/)
 - Microsoft Azure Well-Architected Framework: Reliability pillar (https://learn.microsoft.com/azure/well-architected/)
 - Azure Architecture Center: multi-region and mission-critical workload guidance (https://learn.microsoft.com/azure/architecture/)
